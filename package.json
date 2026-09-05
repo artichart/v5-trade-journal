@@ -1,0 +1,16 @@
+{
+  "name": "trade-journal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "สมุดไม้จริง XAUUSD — TradingView (ฝั่งระบบ) + MT4 (ฝั่งเงิน) · localhost only · zero dependency",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "reset": "node src/db.js --reset",
+    "demo": "JOURNAL_DB=/tmp/trade-journal-demo/demo.db node scripts/seed-demo.js && JOURNAL_DB=/tmp/trade-journal-demo/demo.db PORT=4199 node src/server.js",
+    "preview": "node scripts/preview.js"
+  }
+}

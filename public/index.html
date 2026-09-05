@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สมุดไม้จริง XAUUSD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --ground:#EDEEEA;--surface:#FDFDFB;--sunken:#E5E7E2;--ink:#15181A;--muted:#5E645F;--faint:#888E89;
+  --line:#D5D8D1;--line-strong:#B7BBB4;--brass:#8A6A18;--win:#2C6A52;--win-soft:#DCEAE2;
+  --loss:#A3392C;--loss-soft:#F3DFDB;--void:#55606A;--void-soft:#E0E5E9;
+  /* โทนกราฟ — วาลิเดตแล้วบนพื้น #FDFDFB (dataviz palette) */
+  --series-1:#2a78d6;   /* ของจริง */
+  --series-2:#eb6834;   /* ตามแผน */
+  --pos:#2a78d6;--neg:#e34948;--mid:#f0efec;
+  --grid:#e1e0d9;--axis:#c3c2b7;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --ground:#121412;--surface:#1A1D1B;--sunken:#0D0F0D;--ink:#E7EAE4;--muted:#99A095;--faint:#737A72;
+  --line:#2B2F2C;--line-strong:#3C413D;--brass:#C9A24A;--win:#6DB392;--win-soft:#16261F;
+  --loss:#E08272;--loss-soft:#2B1917;--void:#8FA0AC;--void-soft:#171D22;
+  --series-1:#3987e5;--series-2:#d95926;--pos:#3987e5;--neg:#e66767;--mid:#383835;
+  --grid:#2c2c2a;--axis:#383835;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;
+  font-size:14.5px;line-height:1.7;padding:0 20px 80px}
+.wrap{max-width:1120px;margin:0 auto}
+h1,h2,h3{font-family:"Bai Jamjuree",sans-serif;margin:0}
+.mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.dim{color:var(--faint)}
+header{padding:34px 0 18px;border-bottom:1px solid var(--line-strong);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+h1{font-size:26px;font-weight:700}
+.badge{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--brass);border:1px solid var(--brass);padding:2px 8px;border-radius:2px}
+.spacer{margin-left:auto}
+select,input,textarea{font-family:inherit;font-size:14px;background:var(--surface);color:var(--ink);
+  border:1px solid var(--line-strong);border-radius:2px;padding:7px 10px}
+textarea{width:100%;min-height:140px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;resize:vertical;background:var(--ground)}
+button{font-family:"Bai Jamjuree",sans-serif;font-weight:600;font-size:14px;cursor:pointer;
+  background:var(--ink);color:var(--ground);border:0;border-radius:2px;padding:8px 16px}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+button.tiny{padding:3px 10px;font-size:12px}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+section{margin-top:32px}
+h2{font-size:12px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);padding-bottom:9px;border-bottom:1px solid var(--line)}
+.hint{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+.loading{opacity:.45;transition:opacity .2s}
+
+/* ★ แผงหน้างาน — สิ่งแรกที่เห็นตอนเปิดเว็บ ต้องตอบว่า "ตอนนี้ทำอะไรได้" */
+.desk{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brass);padding:16px 18px}
+.desk.stop{border-left-color:var(--loss);background:var(--loss-soft)}
+.desk.hold{border-left-color:var(--void);background:var(--void-soft)}
+.desk .verdict{font-family:"Bai Jamjuree",sans-serif;font-size:19px;font-weight:700;line-height:1.35}
+.desk .why{color:var(--muted);font-size:13.5px;margin-top:4px}
+.desk.stop .verdict,.desk.stop .why{color:var(--loss)}
+.desk.hold .verdict,.desk.hold .why{color:var(--void)}
+.desk .inputs{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+.desk .inputs .f{min-width:118px}
+.desk .out{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:14px}
+.desk .out>div{background:var(--surface);padding:11px 14px}   /* > สำคัญ: ไม่งั้นทับ .hero ที่เป็นลูก */
+.desk .out .l{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.desk .out .v{font-family:"Bai Jamjuree",sans-serif;font-size:26px;font-weight:700;line-height:1.2;font-variant-numeric:proportional-nums}
+.desk .out>.lot{background:var(--brass);color:#fff}   /* ★ ห้ามใช้ชื่อ .hero — ชนกับ hero section ข้างบน (display:grid + margin ของมันรั่วเข้ามา) */
+.desk .out .lot .l{color:rgba(255,255,255,.75)}
+.desk .out .n{font-size:12px;color:var(--muted);margin-top:1px}
+.desk .out .lot .n{color:rgba(255,255,255,.85)}
+.desk .rules{margin-top:12px;font-size:13px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.desk .rules b{color:var(--ink)}
+
+/* freeze gate */
+.gate{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brass);padding:14px 18px;display:grid;grid-template-columns:1fr auto;gap:6px 24px;align-items:center}
+.gate .t{font-family:"Bai Jamjuree",sans-serif;font-weight:600;font-size:15px}
+.gate .s{color:var(--muted);font-size:13px}
+.gate.unlocked{border-left-color:var(--win)}
+.meter{height:6px;background:var(--sunken);border-radius:3px;overflow:hidden;margin-top:8px;grid-column:1/-1}
+.meter i{display:block;height:100%;background:var(--brass);border-radius:3px}
+.gate.unlocked .meter i{background:var(--win)}
+
+/* hero + kpi */
+.hero{margin-top:22px;display:grid;grid-template-columns:auto 1fr;gap:6px 28px;align-items:end}
+.hero .big{font-family:"Bai Jamjuree",sans-serif;font-size:52px;font-weight:700;line-height:1;letter-spacing:-.01em}
+.hero .lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.hero .sub{color:var(--muted);font-size:13.5px;align-self:end;padding-bottom:6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);padding:12px 14px}
+.kpi .l{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.kpi .v{font-family:"Bai Jamjuree",sans-serif;font-size:24px;font-weight:600;margin-top:2px;line-height:1.2}
+.kpi .d{color:var(--muted);font-size:12.5px;margin-top:2px}
+.kpi .v .se{font-size:13px;color:var(--faint);font-weight:500}
+
+/* cards */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}.hero{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);padding:14px 16px 10px;margin-top:14px;position:relative}
+.card .hd{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.card h3{font-size:15px;font-weight:600}
+.card .sub{color:var(--muted);font-size:12.5px}
+.card .hd button{margin-left:auto}
+.chart{position:relative}
+.tv{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.tv th{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:left;padding:0 10px 6px 0;font-weight:500}
+.tv td{padding:5px 10px 5px 0;border-top:1px solid var(--line)}
+.tv td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;text-align:right}
+.tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--ground);padding:7px 10px;border-radius:3px;font-size:12.5px;line-height:1.5;z-index:5;max-width:260px}
+.tip .th{font-weight:600;margin-bottom:2px}
+.tip .tr{display:flex;align-items:center;gap:8px}
+.tip .tr b{font-family:"IBM Plex Mono",monospace;min-width:64px}
+.tip .key{display:inline-block;width:14px;height:2px;border-radius:1px}
+.tip .dim{color:var(--line-strong)}
+
+/* discipline */
+.disc{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+@media (max-width:820px){.disc{grid-template-columns:1fr}}
+.disc .pct{font-family:"Bai Jamjuree",sans-serif;font-size:44px;font-weight:700;line-height:1}
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.flag{background:var(--ground);border:1px solid var(--line);padding:9px 12px}
+.flag .n{font-family:"Bai Jamjuree",sans-serif;font-size:22px;font-weight:600}
+.flag .l{font-size:12.5px;color:var(--muted)}
+.flag.info{border-style:dashed}
+.leak{margin-top:12px;padding:10px 14px;background:var(--sunken);border-left:3px solid var(--line-strong);font-size:13.5px}
+.leak b{font-family:"IBM Plex Mono",monospace}
+
+/* table + forms */
+.scroll{overflow-x:auto;margin-top:10px}
+table.trades{width:100%;border-collapse:collapse;min-width:960px;font-size:13.5px}
+table.trades th{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:500;text-align:left;padding:0 10px 8px 0;white-space:nowrap}
+table.trades td{padding:8px 10px 8px 0;border-top:1px solid var(--line);vertical-align:top;white-space:nowrap}
+table.trades td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.chip{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:2px 7px;border-radius:2px;margin-right:3px}
+.chip.tp{background:var(--win-soft);color:var(--win)}
+.chip.sl{background:var(--loss-soft);color:var(--loss)}
+.chip.manual,.chip.not_taken{background:var(--void-soft);color:var(--void)}
+.chip.open{background:transparent;color:var(--faint);border:1px solid var(--line-strong)}
+.chip.v{background:var(--loss-soft);color:var(--loss)}
+.chip.i{background:transparent;color:var(--faint);border:1px dashed var(--line-strong)}
+.panel{background:var(--surface);border:1px solid var(--line);padding:18px;margin-top:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:12px}
+.f label{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+.f input,.f select{width:100%}
+.warn{margin-top:12px;background:var(--loss-soft);color:var(--loss);border-left:3px solid var(--loss);padding:10px 14px;font-size:13.5px}
+.warn ul{margin:4px 0 0;padding-left:18px}
+.ok{margin-top:12px;background:var(--win-soft);color:var(--win);border-left:3px solid var(--win);padding:10px 14px;font-size:13.5px}
+.carried{background:var(--sunken);border:1px solid var(--line-strong);padding:14px 18px;margin-top:14px}
+.carried h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.carried ul{margin:0;padding-left:18px;color:var(--muted);font-size:13.5px}
+.carried li::marker{color:var(--brass)}
+.empty{color:var(--faint);font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>สมุดไม้จริง XAUUSD</h1>
+  <span class="badge" id="cur-ruleset">—</span>
+  <label class="spacer" style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)">ระบอบกติกา
+    <select id="ruleset-sel"></select>
+  </label>
+</header>
+
+<section id="desk-sec" style="margin-top:0">
+  <h2 style="margin-top:26px">หน้างาน — ก่อนกดเข้าไม้</h2>
+  <div class="desk" id="desk"></div>
+</section>
+
+<div class="gate" id="gate"></div>
+
+<div class="hero" id="hero"></div>
+<div class="kpis" id="kpis"></div>
+<p class="hint">Win % และ Expectancy มี ±SE กำกับเสมอ — ช่วง ±1 SE ครอบค่าจริงราว 68% · ±2 SE ราว 95% · ถ้าส่วนต่างที่เห็นเล็กกว่า 2 SE ให้อ่านว่า "ยังแยกไม่ออก" ไม่ใช่ "ดีขึ้น/แย่ลง"</p>
+
+<section>
+  <h2>เส้นทุน — ทำจริง เทียบ ตามแผน</h2>
+  <p class="hint">"ตามแผน" = ไม้เดียวกัน ราคาเข้า-ออกเดียวกัน แต่ขนาดไม้ตามที่ agent คำนวณ (planned_lot) · ช่องว่างระหว่างสองเส้นคือราคาของการไม่ทำตามแผน — บวกหรือลบก็คือความเสี่ยงที่ไม่เคยถูกวัด</p>
+  <div class="card"><div class="hd"><h3>Equity</h3><span class="sub">USD สะสม · เรียงตามเวลาปิดไม้</span><button class="ghost tiny" data-toggle="eq">ตาราง</button></div><div class="chart" id="eq"></div></div>
+  <div class="card"><div class="hd"><h3>Drawdown</h3><span class="sub">ระยะจากจุดสูงสุดของเส้นทุนจริง</span><button class="ghost tiny" data-toggle="dd">ตาราง</button></div><div class="chart" id="dd"></div></div>
+</section>
+
+<section>
+  <h2>วินัย — แยกจากกำไร</h2>
+  <p class="hint">4 ตัวจับผิดคำนวณจากการเทียบ "ที่ตั้งใจ" (TradingView) กับ "ที่ทำจริง" (MT4) — ไม่ต้องให้ใครรายงานตัวเอง · ไม้ที่ได้กำไรแต่แหกแผนก็ยังนับว่าแหก</p>
+  <div class="card"><div class="disc" id="disc"></div></div>
+  <div class="card"><div class="hd"><h3>R ต่อไม้</h3><span class="sub">กำไร ÷ ความเสี่ยงที่ตั้งใจไว้ · ไม้ตามแผนหรี่ · ไม้แหกแผนเต็มสี</span><button class="ghost tiny" data-toggle="rbars">ตาราง</button></div><div class="chart" id="rbars"></div></div>
+  <div class="grid2">
+    <div class="card"><div class="hd"><h3>การแจกแจง R</h3><span class="sub">ช่องละ 0.5R · ระบบ R:R 1:1 ที่ทำตามแผนต้องกองอยู่ที่ ±1</span><button class="ghost tiny" data-toggle="rhist">ตาราง</button></div><div class="chart" id="rhist"></div></div>
+    <div class="card"><div class="hd"><h3>ตามวันในสัปดาห์</h3><span class="sub">P&L สุทธิ</span><button class="ghost tiny" data-toggle="wd">ตาราง</button></div><div class="chart" id="wd"></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="hd"><h3>ตามชั่วโมงที่ดาบออก</h3><span class="sub">P&L สุทธิ · เวลาไทย</span><button class="ghost tiny" data-toggle="hr">ตาราง</button></div><div class="chart" id="hr"></div></div>
+    <div class="card"><div class="hd"><h3>ปฏิทิน</h3><span class="sub">P&L รายวัน · จ–ศ</span><button class="ghost tiny" data-toggle="cal">ตาราง</button></div><div class="chart" id="cal"></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>ไม้ในสมุด</h2>
+  <div class="scroll"><table class="trades">
+    <thead><tr>
+      <th>วัน</th><th>เวลา</th><th>ทาง</th><th>Entry</th><th>ระยะ</th><th>ATR</th><th>lot แผน→จริง</th><th>wall</th><th>ผล</th><th>P/L</th><th>R</th><th>ธง</th><th></th>
+    </tr></thead>
+    <tbody id="trades"></tbody>
+  </table></div>
+  <div id="edit-out"></div>
+</section>
+
+<section>
+  <h2>บันทึกไม้ใหม่</h2>
+  <p class="hint"><b>ตอนดาบออก</b> บันทึกฝั่งระบบก่อน (ไม้จะขึ้นสถานะ <span class="mono">open</span>) → <b>หลังไม้จบ</b> ค่อยกด "กรอกผล" ในตารางไม้เพื่อใส่ฝั่งเงินจาก MT4<br>
+    วิธีที่เร็วที่สุดคือวางข้อความ Telegram แล้วให้แกะให้ · ถ้า Telegram ไม่เด้ง (เคยเจอมาแล้ว) ใช้ปุ่ม <b>กรอกเอง</b> — ทั้งสองทางได้ฟอร์มเดียวกัน</p>
+  <div class="panel">
+    <textarea id="tg" placeholder="วางข้อความแจ้งเตือนดาบออกจาก Telegram ทั้งก้อนตรงนี้ แล้วกด &quot;แกะข้อความ&quot;"></textarea>
+    <div class="row"><button id="btn-parse">แกะข้อความ</button><button class="ghost" id="btn-manual">กรอกเอง (ไม่มีข้อความ Telegram)</button><button class="ghost" id="btn-clear">ล้าง</button></div>
+    <div id="parse-out"></div>
+  </div>
+</section>
+
+<section>
+  <h2>ตัวนับที่ยกมาจากสมุดเก่า — ไม่ถูกรีเซ็ต</h2>
+  <div class="carried" id="carried"></div>
+</section>
+
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
