@@ -83,6 +83,10 @@ export function planGeometry({ price, atr, side, dist: distIn }, cfg = {}) {
 // ---------- ธงจับผิด 4 ตัว (ของที่ต้นเคยเขียนเองในชีททุกเดือน แต่โปรแกรมตรวจได้เอง) ----------
 // ⚠️ held_past_23 เป็น "ข้อมูล" ไม่ใช่ "ความผิด" — กฎเว็บข้อ 06 (ปิดจอ 23:00) กับคอนฟิก closeEnd=ปิด
 //    ขัดกันอยู่และยังไม่ได้วัด (รอบ E ค้าง) → ห้ามนับเป็นแหกแผนจนกว่ารอบ E จะมีตัวเลข
+// ⚠️ stopout ก็เป็น "ข้อมูล" ไม่ใช่ "ความผิด" — ★ 8 ก.ย. 69 ต้นระบุเอง:
+//    "ผมไม่ได้ขยับ SL TP นะ ผมใช้พอร์ตในการ stop lose" = ตั้งใจไม่ตั้ง SL แล้วให้ยอดพอร์ตเป็นตัวหยุด
+//    ก่อนหน้านี้ธง moved_sltp ยิงใส่ไม้แบบนี้ เพราะมันเห็นแค่ "ปิดคนละราคากับ planned_sl" ซึ่งกล่าวหาผิด
+//    → แยกออกมาเป็นธงของตัวเอง และ **ไม่นับเป็นแหกแผน** แต่ต้องโชว์ เพราะมันเปลี่ยนระยะ stop จริง (ดู stop_dist_real)
 export const VIOLATION_KEYS = ['early_entry', 'oversize', 'multi_ticket', 'moved_sltp', 'manual_close'];
 export const FLAG_LABELS = {
   early_entry:  'เข้าก่อนดาบออก',
@@ -91,7 +95,22 @@ export const FLAG_LABELS = {
   moved_sltp:   'ขยับ SL/TP',
   manual_close: 'ปิดมือ',
   held_past_23: 'ถือเลย 23:00 (รอบ E ยังไม่ตัดสิน · ไม่นับเป็นแหกแผน)',
+  stopout:      'พอร์ตหมดก่อนถึง SL (ตั้งใจ · ไม่นับเป็นแหกแผน)',
 };
+
+/** ไม้ที่โบรกปิดเองเพราะพอร์ตหมด — อ่านจาก tag ไม่ใช่เดาจากราคา (ราคาปิดของ stop out ไม่มีความหมายเชิงเทคนิค) */
+export function isStopout(t) {
+  return String(t.tags ?? '').split(',').map((x) => x.trim()).includes('stopout');
+}
+
+/** ระยะ stop ที่ "เกิดขึ้นจริง" เป็นจุด = |กำไร| ÷ (lot × 100)
+ *  ★ ตัวเลขที่สำคัญที่สุดของโหมด "ใช้พอร์ตเป็น stop": ถ้ามันแคบกว่า planned_dist
+ *    แปลว่าไม้ถูกตัดก่อนที่ SL ของระบบจะได้ทำงาน = กำลังรันคนละระบบกับที่ backtest วัดไว้ */
+export function stopDistReal(t) {
+  const lot = num(t.lot), profit = num(t.profit);
+  if (lot == null || lot <= 0 || profit == null || profit >= 0) return null;
+  return Math.abs(profit) / (lot * USD_PER_LOT_PER_DOLLAR);
+}
 
 // เผื่อสลิป/สเปรด: 10% ของระยะ แต่ไม่ต่ำกว่า 1 USD — กว้างกว่านี้ธงจะไม่จับ แคบกว่านี้จะยิงมั่วตอนข่าว
 // (ระยะ 20 → เผื่อ 2.0 · ระยะ 40 → เผื่อ 4.0)
@@ -100,6 +119,7 @@ export function sltpTolerance(dist) {
 }
 
 export function flags(t) {
+  const stopout = isStopout(t);
   const sig = signalCloseAt(t);
   const lot = num(t.lot), plan = num(t.planned_lot);
   // ★ ขยับ SL/TP: ไม้ที่ระบบบอกว่าจบด้วย TP/SL ต้องปิดที่ราคานั้นจริง (เผื่อสลิปแล้ว)
@@ -111,7 +131,9 @@ export function flags(t) {
     early_entry:  !!(t.entry_at && sig && t.entry_at < sig),
     oversize:     !!(lot != null && plan != null && plan > 0 && lot > plan * 1.05), // เผื่อปัด lot 5%
     multi_ticket: (num(t.mt4_tickets) ?? 1) > 1,
-    moved_sltp:   !!(exit != null && target != null && Math.abs(exit - target) > sltpTolerance(dist)),
+    // ★ ไม้ stop out ไม่เข้าข่าย "ขยับเส้น" — เส้นไม่ได้ถูกขยับ มันไม่เคยถูกแตะต่างหาก
+    moved_sltp:   !!(!stopout && exit != null && target != null && Math.abs(exit - target) > sltpTolerance(dist)),
+    stopout,
     manual_close: t.outcome === 'manual',
     held_past_23: !!(t.exit_at && t.exit_at.length >= 16 &&
                      (t.exit_at.slice(0, 10) > (t.signal_date ?? '') || t.exit_at.slice(11, 16) > '23:00')),
@@ -126,6 +148,7 @@ export function enrich(t) {
   return {
     ...t,
     planned_risk: plannedRisk(t),
+    stop_dist_real: stopDistReal(t),
     r: rMultiple(t),
     plan_profit: planProfit(t),
     flags: flags(t),
@@ -199,6 +222,11 @@ export function analyze(trades, settings = {}) {
   const viol = Object.fromEntries(VIOLATION_KEYS.map((k) => [k, closed.filter((t) => t.flags[k]).length]));
   const cleanN = closed.filter((t) => t.flags.clean).length;
   const heldPast23 = closed.filter((t) => t.flags.held_past_23).length;
+  // ★ stopout = ข้อมูล ไม่ใช่แหกแผน (ต้นตั้งใจใช้พอร์ตเป็น stop) — แต่ต้องนับให้เห็น
+  //   พร้อม "ระยะ stop จริง" เฉลี่ย เพราะถ้ามันแคบกว่า planned_dist = SL ของระบบไม่เคยได้ทำงาน
+  const stopoutN = closed.filter((t) => t.flags.stopout).length;
+  const stopShort = closed.filter((t) => t.stop_dist_real != null && num(t.planned_dist) != null &&
+                                         t.stop_dist_real < num(t.planned_dist)).length;
   const net = profits.reduce((s, p) => s + p, 0);
   const planNet = plans.reduce((s, p) => s + p, 0);
 
@@ -257,7 +285,7 @@ export function analyze(trades, settings = {}) {
     discipline: {
       clean: cleanN, closed: closed.length,
       adherence_pct: closed.length ? round((cleanN / closed.length) * 100, 1) : null,
-      violations: viol, held_past_23: heldPast23,
+      violations: viol, held_past_23: heldPast23, stopout: stopoutN, stop_short: stopShort,
     },
     freeze: { min: freezeMin, settled: settled.length, remaining, unlocked: remaining === 0 },
     equity: closed.map((t, i) => ({

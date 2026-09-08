@@ -13,6 +13,7 @@ const signed = (v) => (v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + 
 const FLAG_LABELS = {
   early_entry: 'เข้าก่อนดาบออก', oversize: 'lot เกินแผน', multi_ticket: 'เข้าหลายไม้',
   moved_sltp: 'ขยับ SL/TP', manual_close: 'ปิดมือ', held_past_23: 'ถือเลย 23:00',
+  stopout: 'พอร์ตหมดก่อนถึง SL', stop_short: 'stop จริงแคบกว่าแผน',
 };
 
 let boot = null;      // rulesets / carried / settings
@@ -148,12 +149,12 @@ function renderHero() {
 
 function renderDiscipline() {
   const d = A.discipline, v = d.violations;
-  const flag = (k, cnt, info = false) => `<div class="flag${info ? ' info' : ''}"><div class="n">${cnt}</div><div class="l">${FLAG_LABELS[k]}${info ? ' <span class="dim">· ข้อมูล ไม่นับเป็นแหกแผน (รอบ E ค้าง)</span>' : ''}</div></div>`;
+  const flag = (k, cnt, info = false, note = 'ข้อมูล ไม่นับเป็นแหกแผน (รอบ E ค้าง)') => `<div class="flag${info ? ' info' : ''}"><div class="n">${cnt}</div><div class="l">${FLAG_LABELS[k]}${info ? ` <span class="dim">· ${note}</span>` : ''}</div></div>`;
   $('#disc').innerHTML = `
     <div><div class="lbl dim mono" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase">ทำตามแผน</div>
       <div class="pct">${d.adherence_pct == null ? '—' : d.adherence_pct + '%'}</div>
       <div class="dim" style="font-size:13px">${d.clean} จาก ${d.closed} ไม้ ไม่ติดธงสักตัว</div></div>
-    <div><div class="flags">${flag('oversize', v.oversize)}${flag('early_entry', v.early_entry)}${flag('multi_ticket', v.multi_ticket)}${flag('moved_sltp', v.moved_sltp)}${flag('manual_close', v.manual_close)}${flag('held_past_23', d.held_past_23, true)}</div>
+    <div><div class="flags">${flag('oversize', v.oversize)}${flag('early_entry', v.early_entry)}${flag('multi_ticket', v.multi_ticket)}${flag('moved_sltp', v.moved_sltp)}${flag('manual_close', v.manual_close)}${flag('held_past_23', d.held_past_23, true)}${flag('stopout', d.stopout, true, 'ตั้งใจ · ไม่นับเป็นแหกแผน')}${flag('stop_short', d.stop_short, true, 'SL ของระบบไม่ได้ทำงาน')}</div>
       <div class="leak">ทำจริง <b>${signed(A.net)}</b> · ตามแผน <b>${signed(A.plan_net)}</b> → ส่วนต่าง <b>${signed(A.leak)}</b> USD
         ${A.leak > 0 ? '— ครั้งนี้แหกแผนแล้ว "ได้" แต่มันคือผลของขนาดไม้ที่ไม่ได้วัด ไม่ใช่ของระบบ · ครั้งหน้าเครื่องหมายกลับได้ทุกเมื่อ'
           : A.leak < 0 ? '— นี่คือราคาที่จ่ายให้การไม่ทำตามแผน เทียบกับกำไรระบบแล้วดูว่าคุ้มไหม' : ''}</div></div>`;
