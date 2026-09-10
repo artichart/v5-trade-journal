@@ -191,7 +191,7 @@ const FIELDS = [
   'trigger_usd','bars','tf_count','tf_list','ema_cross','planned_sl','planned_tp','planned_dist',
   'planned_lot','rr','wall_state','wall_dist_ahead','wall_ahead','wall_ahead_name','basis','put_wall',
   'call_wall','mt4_ticket','entry_price','entry_at','exit_price','exit_at','lot','spread','commission',
-  'swap','profit','outcome','mfe','mae','wall_touched','news','note','mt4_tickets','tags',
+  'swap','profit','outcome','mfe','mae','wall_touched','news','note','mt4_tickets','tags','h4_dir',
 ];
 
 export function insertTrade(row) {
