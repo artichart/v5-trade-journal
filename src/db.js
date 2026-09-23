@@ -106,7 +106,10 @@ function addColumn(table, col, ddl) {
 }
 addColumn('trades', 'mt4_tickets', 'INTEGER DEFAULT 1');  // จำนวน ticket MT4 ต่อสัญญาณ (>1 = ตัวจับผิด "เข้าหลายไม้")
 addColumn('trades', 'tags', 'TEXT');                       // ป้ายอิสระ คั่นด้วย , เช่น "nfp,fomo"
-addColumn('trades', 'h4_dir', 'TEXT');                     // ทิศ H4 ตอนดาบออก — อยู่ใน FIELDS อยู่แล้ว แต่เดิมไม่มีบรรทัดนี้ = DB ที่สร้างใหม่ insert ไม่ผ่าน
+addColumn('trades', 'h4_dir', 'TEXT');
+// ★ [23 ก.ย. 69] ระบอบต้องบอกได้ว่าเป็นของ "ระบบไหน" — ตั้งแต่มีระบบที่สอง (EMA50 PA บน H1)
+//   ไม่งั้น currentRuleset() จะคืนระบอบของระบบอื่นมาให้ แล้วไม้ V5 ไปลงผิดสมุดเงียบๆ
+addColumn('rulesets', 'system', "TEXT DEFAULT 'v5'");                     // ทิศ H4 ตอนดาบออก — อยู่ใน FIELDS อยู่แล้ว แต่เดิมไม่มีบรรทัดนี้ = DB ที่สร้างใหม่ insert ไม่ผ่าน
 
 // ตั้งค่าที่ต้นแก้เองได้ไม่ต้องแตะโค้ด — seed แบบ DO NOTHING โดยตั้งใจ (ค่าที่ต้นตั้งต้องอยู่รอดตอนรีสตาร์ต)
 db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, note TEXT)`);
@@ -122,10 +125,11 @@ seedSetting.run('sltp_min_dist', '10',  'ระยะขั้นต่ำ (USD)
 seedSetting.run('max_per_session', '1', 'โควตาไม้ต่อวินโดว์ (กฎข้อ 5) — 1 session 1 ไม้');
 
 const seedRuleset = db.prepare(
-  `INSERT INTO rulesets (code, name, effective_from, effective_to, notes)
-   VALUES (?, ?, ?, ?, ?)
+  `INSERT INTO rulesets (code, name, effective_from, effective_to, notes, system)
+   VALUES (?, ?, ?, ?, ?, COALESCE(?, 'v5'))
    ON CONFLICT(code) DO UPDATE SET
      name = excluded.name,
+     system = excluded.system,
      effective_from = excluded.effective_from,
      effective_to = excluded.effective_to,
      notes = excluded.notes`
@@ -163,12 +167,26 @@ seedCarried.run('wall_gate_wrong', '3',
 seedCarried.run('price_ends_at_wall', '3',
   'ราคาไปจบตรงกำแพง n=3 (31 ส.ค. · 1 ก.ย. · 3 ก.ย.) — อ่านย้อนหลัง ยังห้ามแปลงเป็นกฎ');
 
+// ★★ [23 ก.ย. 69] ระบอบแรกของ **ระบบที่สอง** — EMA50 PA บน H1 (Pine/EMA50_PA_H1.pine)
+//   คนละระบบกับดาบ V5 คนละกฎ คนละ TF → ต้องมีระบอบของตัวเอง ไม่ใช่ปนใน R7
+//   ⛔ ห้ามเอาสถิติของสองระบบมารวมกันเด็ดขาด (invariant เดิม: นับต่อ ruleset เท่านั้น)
+seedRuleset.run('PA1', 'EMA50 PA H1 — ยิงทั้งวัน · ระยะคงที่ 10/20', '2026-09-23', null,
+  'ย่อมาแตะ EMA50 แล้วมี PA ปฏิเสธเส้น (pin / engulf / ทิ่มแล้วปิดกลับ) บน H1 · ' +
+  'ยิงได้ทั้งวัน วินโดว์มีหน้าที่เลือกระยะเท่านั้น: 12:00–17:00 ±10 · เวลาอื่น ±20 · R:R 1:1 · ' +
+  '1 สัญญาณต่อการย่อ 1 ครั้ง (ต้องออกห่างเส้น ≥0.5×ATR ก่อนติดอาวุธใหม่) · ถือทีละ 1 ไม้ · ' +
+  '⚠️ สถิติหลังบ้านของสคริปต์ 51% (n=310) = เกาะเส้นคุ้มทุน 50% พอดี แยกจากการโยนเหรียญไม่ออก · ' +
+  '⛔ ไม้จริง 0 ไม้ ณ วันเปิดระบอบ', 'ema50_pa');
+
 // ── queries ────────────────────────────────────────────────────────
 export const q = {
   rulesets: () => db.prepare('SELECT * FROM rulesets ORDER BY effective_from').all(),
 
-  currentRuleset: () =>
-    db.prepare('SELECT * FROM rulesets WHERE effective_to IS NULL ORDER BY effective_from DESC LIMIT 1').get(),
+  // ★ ต้องระบุระบบเสมอ (ดีฟอลต์ v5) — มีระบอบที่เปิดอยู่พร้อมกันได้มากกว่าหนึ่ง
+  //   ตั้งแต่ 23 ก.ย. 69 ที่มีระบบที่สอง ถ้าไม่กรอง ระบอบของ EMA50 PA จะกลายเป็น "ปัจจุบัน"
+  //   แล้วไม้ V5 ที่ไม่ได้ระบุ ruleset_id จะไปลงสมุดผิดเล่มโดยไม่มีอะไรฟ้อง
+  currentRuleset: (system = 'v5') =>
+    db.prepare(`SELECT * FROM rulesets WHERE effective_to IS NULL AND COALESCE(system, 'v5') = ?
+                ORDER BY effective_from DESC LIMIT 1`).get(system),
 
   trades: (rulesetId) =>
     rulesetId

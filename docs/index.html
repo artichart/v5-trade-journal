@@ -928,7 +928,14 @@ const RULESETS = [
   { id: 6, code: 'R6', name: 'V5.19 — 3 TF (useH4 ปิด) + BB (จอ)', effective_from: '2026-09-09', effective_to: '2026-09-09' },
   { id: 7, code: 'R7', name: 'V5.20–V5.23 — 6 TF + ระยะคงที่แยกวินโดว์ + 1 ไม้ต่อวัน', effective_from: '2026-09-16', effective_to: null,
     notes: 'ต้องเรียงครบ 6/6 (M5/M1 เข้าชุด 11 ก.ย.) · ระยะคงที่ W1 ±10 · เย็น ±20 (16 ก.ย.) · lockScope 1 ไม้ต่อวัน · ' +
-      '⛔ สถิติชุด 4 TF ใช้กับระบอบนี้ไม่ได้ n เริ่มใหม่' },
+      '⛔ สถิติชุด 4 TF ใช้กับระบอบนี้ไม่ได้ n เริ่มใหม่', system: 'v5' },
+  // ★★ [23 ก.ย. 69] ระบอบแรกของ **ระบบที่สอง** — EMA50 PA บน H1 · คนละกฎ คนละ TF กับดาบ V5
+  //   ⛔ ห้ามรวมสถิติสองระบบ · invariant เดิมคุมอยู่แล้ว (นับต่อ ruleset เท่านั้น)
+  { id: 8, code: 'PA1', name: 'EMA50 PA H1 — ยิงทั้งวัน · ระยะคงที่ 10/20', effective_from: '2026-09-23', effective_to: null,
+    system: 'ema50_pa',
+    notes: 'ย่อมาแตะ EMA50 + PA ปฏิเสธเส้น (pin / engulf / ทิ่มแล้วปิดกลับ) บน H1 · ยิงทั้งวัน · ' +
+      'วินโดว์เลือกระยะอย่างเดียว: 12:00–17:00 ±10 · เวลาอื่น ±20 · R:R 1:1 · ถือทีละ 1 ไม้ · ' +
+      '⚠️ สถิติหลังบ้าน 51% (n=310) เกาะเส้นคุ้มทุนพอดี · ⛔ ไม้จริง 0 ไม้ ณ วันเปิด' },
 ];
 
 // ตัวนับที่ยกมาจากสมุด markdown เล่มเก่า — รีเซ็ตสถิติแพ้/ชนะ แต่ไม่รีเซ็ตของพวกนี้
@@ -977,7 +984,10 @@ function commit() {
 const store = {
   rulesets: () => RULESETS,
   carried:  () => CARRIED,
-  current:  () => RULESETS.find((r) => !r.effective_to) ?? RULESETS.at(-1),
+  // ★ ต้องกรองระบบด้วย (ดีฟอลต์ v5) — ตั้งแต่ 23 ก.ย. 69 มีระบอบเปิดพร้อมกันสองระบบ
+  //   ไม่กรอง = ฟอร์มบันทึกไม้จะเลือกระบอบของอีกระบบมาให้โดยไม่มีอะไรฟ้อง
+  current:  (system = 'v5') =>
+    RULESETS.find((r) => !r.effective_to && (r.system ?? 'v5') === system) ?? RULESETS.at(-1),
   settings: () => ({ ...db().settings }),
 
   setSetting(k, v) { db().settings[k] = String(v); commit(); return this.settings(); },
